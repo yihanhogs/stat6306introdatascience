@@ -1,0 +1,13 @@
+---
+title: "Assignment#2"
+author: "Yihan Xu"
+date: "September 3, 2015"
+output: html_document
+---
+
+```{r}
+# Homework Assignment #2
+skills <- c("programming","math","statistics","machine learning","expertise","communication","data viz")
+ratings <- c(2,3,4,1,4,5,2)
+barplot(ratings,names.arg=skills, col=rainbow(7))
+```
