@@ -4,7 +4,14 @@ author: "Yihan Xu"
 date: "September 3, 2015"
 output: html_document
 ---
-
+---  
+   title: "Something fascinating"  
+   author: "Jenny Bryan"  
+   date: "10 September, 2014"  
+   output:  
+     html_document:  
+       keep_md: true  
+---  
 ```{r}
 # Homework Assignment #2
 skills <- c("programming","math","statistics","machine learning","expertise","communication","data viz")

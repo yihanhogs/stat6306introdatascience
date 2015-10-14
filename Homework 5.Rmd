@@ -1,0 +1,77 @@
+---
+title: "Homework 5"
+author: "Yihan Xu"
+date: "October 8, 2015"
+output: html_document
+---
+
+# download and read in the first data set
+```{r}
+fileURL <- "https://d396qusza40orc.cloudfront.net/getdata%2Fdata%2FGDP.csv "
+setwd("/users/call_me_bgdrgn/documents/data science 6306")
+download.file(fileURL,destfile = "gdp.csv",method="curl")
+gdp <- read.csv(file="gdp.csv",header = T)
+names(gdp)
+head(gdp)
+gdp <- read.csv(file="gdp.csv",skip=5,header = F)
+head(gdp)
+gdp <- read.csv(file="gdp.csv",skip=5,header = F,na.strings = c("..","Not Available."))
+str(gdp)
+gdp <- read.csv(file="gdp.csv",skip=5,header = F,na.strings = c("..","Not available.","..Not available"),stringsAsFactors = F)
+str(gdp)
+gdp <- dplyr::select(gdp,V1,V2,V4,V5)
+str(gdp)
+#cleaning the data
+names(gdp) <- c("CountryCode","Ranking","Economy","GDP")
+str(gdp)
+gdp$Ranking <- as.numeric(gdp$Ranking)
+str(gdp)
+tail(gdp,40)
+sum(is.na(gdp$Ranking))
+dim(gdp)
+326-136
+gdp[185:195,]
+summary(gdp[191:326,])
+gdp <- gdp[1:191,]
+str(gdp)
+gdp2 <- gdp
+gdp2$GDP <- as.numeric(gdp$GDP)
+str(gdp2)
+gdp$GDP <- gsub(",","",gdp$GDP)
+str(gdp)
+gdp$GDP <- as.numeric(gdp$GDP)
+str(gdp)
+```
+
+# download and read in the second data set
+```{r}
+fileURL <- "https://d396qusza40orc.cloudfront.net/getdata%2Fdata%2FEDSTATS_Country.csv"
+setwd("/users/call_me_bgdrgn/documents/data science 6306")
+download.file(fileURL,destfile = "country.csv",method="curl")
+country <- read.csv(file="country.csv",header = T)
+names(country)
+str(country)
+new <- merge(gdp,country,by.x = "CountryCode",by.y = "CountryCode")
+```
+# Question1: 191-2=189 countrycode are matched from the two data sets.
+```{r}
+gdp3 <- gdp
+gdp4 <- gdp3[order(gdp3$GDP,decreasing = F),]
+gdp4[13,]
+```
+# Question2: the 13th country is KNA, which is St. Kitts and Nevis.
+```{r}
+mean(subset(new, Income.Group %in% "High income: OECD", select = c(Ranking))$Ranking)
+mean(subset(new, Income.Group %in% "High income: nonOECD", select = c(Ranking))$Ranking)
+```
+# Question3: the average GDP rankings for the "High income: OECD" is 32.96667, and the average GDP rankings for the "High income: nonOECD" is 91.91304.
+```{r}
+library(Hmisc)
+new$Rank.Groups=cut2(new$Ranking,g=5)
+table(new$Income.Group,new$Rank.Groups)
+```
+# Question4: 16 countries are lower middle income but among the 38 nations with highest GDP.
+```
+
+
+
