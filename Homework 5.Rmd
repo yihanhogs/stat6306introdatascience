@@ -70,7 +70,7 @@ library(Hmisc)
 new$Rank.Groups=cut2(new$Ranking,g=5)
 table(new$Income.Group,new$Rank.Groups)
 ```
-# Question4: 16 countries are lower middle income but among the 38 nations with highest GDP.
+# Question4: 5 countries are lower middle income but among the 38 nations with highest GDP.
 ```
 
 
