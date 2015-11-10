@@ -222,7 +222,8 @@ skills3 <- unname(skills2)
 tt = sort(table(skills3),decreasing = TRUE)
 tt
 ```
-# The table above shows different skills required from the 20 jobs descriptions we automatically generated from CyberCoders.com. As we can tell from this table, there are a lot of statistical skills required or suggested for the data engineer position, inclusing python, java, R, SAS,etc. Next, we will generate a histogram showing the top 6 skills required and see the amount of times they appeared in the job description.
+# explaination:
+The table above shows different skills required from the 20 jobs descriptions we automatically generated from CyberCoders.com. As we can tell from this table, there are a lot of statistical skills required or suggested for the data engineer position, inclusing python, java, R, SAS,etc. Next, we will generate a histogram showing the top 6 skills required and see the amount of times they appeared in the job description.
 ```{r histogram}
 aa <- tt[tt >= 7]
 aa
@@ -232,7 +233,8 @@ skills4$skills <- attributes(skills4)$row.names
 library(ggplot2)
 ggplot(data=skills4,aes(y=count,x=skills))+geom_histogram(stat="identity",fill="red")
 ```
-# The histogram above indicates that the top 6 skills related to data engineer position is: hadoop, java, mysql,python, r and sql.Python is the most important skill in this case.
+# explaination:
+The histogram above indicates that the top 6 skills related to data engineer position is: hadoop, java, mysql,python, r and sql.Python is the most important skill in this case.
 
 
 # Conclusion: 
