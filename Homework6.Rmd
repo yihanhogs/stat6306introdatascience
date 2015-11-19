@@ -24,7 +24,7 @@ exp(cbind(OR = coef(ex1223.glm), confint(ex1223.glm)))
 ```
 
 # equation: esteem = -2.77 + 0.17logannualincome + 0.008afqt + 0.076educ - 0.15gendermale
-
+# When logaunnualincome increases by 1 unit, esteem will be increased by 0.17 units. When allengence increases by 1 unit, esteem will be increased by 0.008 units, when years of education increases by 1 unit, esteem will be increased by 0.076 units, gender of male will decrease esteem by 0.15. 
 ```{r tree}
 library(rpart)
 tree <- rpart(esteem~Educ+AFQT+logannualincome+Gender, data=ex1223, method="class")
