@@ -28,11 +28,12 @@ exp(cbind(OR = coef(ex1223.glm), confint(ex1223.glm)))
 ```{r tree}
 library(rpart)
 tree <- rpart(esteem~Educ+AFQT+logannualincome+Gender, data=ex1223, method="class")
-print(tree2)
+print(tree)
 ```
 
 ```{r}
 # obtain training and test sets
+library(ada)
 splitdf <- function(dataframe, seed=NULL) {
  if (!is.null(seed)) set.seed(seed)
  index <- 1:nrow(dataframe)
