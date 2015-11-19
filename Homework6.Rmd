@@ -1,0 +1,72 @@
+---
+title: "Homework6"
+author: "Yihan Xu"
+date: "November 16, 2015"
+output: html_document
+---
+
+```{r explore the dependence of the probability}
+library(Sleuth3)
+data(ex1223)
+summary(ex1223)
+str(ex1223)
+help(ex1223)
+ex1223$esteem[ex1223$Esteem1==1] <- 1
+ex1223$esteem[ex1223$Esteem1==2] <- 0
+ex1223$esteem[ex1223$Esteem1==3] <- 0
+ex1223$esteem[ex1223$Esteem1==4] <- 0
+ex1223$logannualincome <- log(ex1223$Income2005)
+ex1223.glm <- glm(ex1223$esteem~ex1223$logannualincome+ex1223$AFQT+ex1223$Educ+ex1223$Gender,family="binomial")
+summary(ex1223.glm)
+confint(ex1223.glm)
+exp(coef(ex1223.glm))
+exp(cbind(OR = coef(ex1223.glm), confint(ex1223.glm)))
+```
+
+# equation: esteem = -2.77 + 0.17logannualincome + 0.008afqt + 0.076educ - 0.15gendermale
+
+```{r tree}
+library(rpart)
+tree <- rpart(esteem~Educ+AFQT+logannualincome+Gender, data=ex1223, method="class")
+print(tree2)
+```
+
+```{r}
+# obtain training and test sets
+splitdf <- function(dataframe, seed=NULL) {
+ if (!is.null(seed)) set.seed(seed)
+ index <- 1:nrow(dataframe)
+ trainindex <- sample(index, trunc(length(index)/2))
+ trainset <- dataframe[trainindex, ]
+ testset <- dataframe[-trainindex, ]
+ list(trainset=trainset,testset=testset)
+} 
+keep <- c("esteem","Educ","logannualincome","Gender","AFQT")
+newdata <- ex1223[keep]
+splits <- splitdf(newdata,seed=808)
+str(splits)
+training <- splits$trainset
+testiing <- splits$testset
+ex.ada <- ada(esteem~.,data=training,iter=20,type="discrete")
+names(ex.ada)
+plot(ex.ada,test=TRUE)
+extest.ada <- ada(esteem~.,data=testiing,iter=20,type="discrete")
+names(extest.ada)
+plot(extest.ada,test=TRUE)
+test.fit <- glm(esteem~Educ+AFQT+logannualincome+Gender,data=testiing,family="binomial")
+prob.fit <- predict(test.fit,testiing,type="response")
+pred.fit <- rep("0",784)
+pred.fit[prob.fit>0.5] <- "1"
+# create confusion table
+table(predicted=pred.fit,actual=testiing$esteem)
+table(predicted=pred.fit,actual=testiing$Educ)
+table(predicted=pred.fit,actual=testiing$Gender)
+table(predicted=pred.fit,actual=testiing$logannualincome)
+table(predicted=pred.fit,actual=testiing$AFQT)
+```
+
+# Not all veriables needed to obtain the best classification, because only the variabls of esteem and Gender are discrete, Educ, logannualincome and AFQT are all continuous variables. It will only make sense if make confusion table by using discrete variables.
+# esteem is the best classifier.
+
+
+
