@@ -1,0 +1,301 @@
+---
+title: "Airline Flight Delays"
+output: html_document
+---
+
+#Introduction:
+#We believe most of us have faced with flight delay issues, which might be thought rare, however, the numbers of the commercial flights between 1987 and 2008 clearly show that it is actually not. There have been over 50 million flights in the United States that failed departing at the schduled time, and about 200,000 of them had at least 2 hours delay. The purpose of the project is to analyzing the airline flight delay dataset and look for the reason behind flight delay.
+#The biggest challenge in this project is to import a 12 Gigabyte dataset into R. Although Unix shell and SQL, as the book suggested, provides alternatives for importing/reading in big data in a faster way, their computational models are limited, and it does not really have built-in capacities for performing statistical computational models. Therefore, we still used R to analyze and draw meaningful results from the data. 
+
+```{r getting the direction and set the memory in R to 13000Mb}
+##Setting the direction
+setwd("C:/graduate school/R")
+getwd()
+memory.limit(size=13000)
+```
+
+```{r import the file}
+##Install the package called "bigmemory", this package will help us to download the large dataset from the internet.
+ 
+library(bigmemory)
+
+##Data sets are downloaded from the Data Expo '09 web site at http://stat-computing.org/dataexpo/2009/the-data.html
+
+for (year in 1987:2008) {
+  file.name <- paste(year, "csv.bz2", sep = ".")
+  if ( !file.exists(file.name) ) {
+    url.text <- paste("http://stat-computing.org/dataexpo/2009/",
+                      year, ".csv.bz2", sep = "")
+    cat("Downloading missing data file ", file.name, "\n", sep = "")
+    download.file(url.text, file.name)
+  }
+}
+
+##Read sample file to get column names and types
+d <- read.csv("2008.csv.bz2")
+integer.columns <- sapply(d, is.integer)
+factor.columns  <- sapply(d, is.factor)
+factor.levels   <- lapply(d[, factor.columns], levels)
+n.rows <- 0L
+
+##Process each file determining the factor levels
+##TODO: Combine with next loop
+for (year in 1987:2008) {
+  file.name <- paste(year, "csv.bz2", sep = ".")
+  cat("Processing ", file.name, "\n", sep = "")
+  d <- read.csv(file.name)
+  n.rows <- n.rows + NROW(d)
+  new.levels <- lapply(d[, factor.columns], levels)
+  for ( i in seq(1, length(factor.levels)) ) {
+    factor.levels[[i]] <- c(factor.levels[[i]], new.levels[[i]])
+  }
+  rm(d)
+}
+save(integer.columns, factor.columns, factor.levels, file = "factors.RData")
+
+##Now convert all factors to integers so we can create a bigmatrix of the data
+col.classes <- rep("integer", length(integer.columns))
+col.classes[factor.columns] <- "character"
+cols  <- which(factor.columns)
+first <- TRUE
+csv.file <- "airlines.csv"   #this airlines.csv file will be the combined dataset of the 22 separated datasets, which is 12 gigabytes. 
+
+csv.con  <- file(csv.file, open = "w")
+for (year in 1987:2008) {
+  file.name <- paste(year, "csv.bz2", sep = ".")
+  cat("Processing ", file.name, "\n", sep = "")
+  d <- read.csv(file.name, colClasses = col.classes)
+  ## Convert the strings to integers
+  for ( i in seq(1, length(factor.levels)) ) {
+    col <- cols[i]
+    d[, col] <- match(d[, col], factor.levels[[i]])
+  }
+  write.table(d, file = csv.con, sep = ",",
+              row.names = FALSE, col.names = first)
+  first <- FALSE
+}
+close(csv.con)
+
+##We are using read.big.matrix to convert the non-numeric values to numeric values, the following code is also an answer for Question2.
+
+x <- read.big.matrix("airlines.csv", header = TRUE,backingfile = "airlines.bin",descriptorfile = "airlines.desc",type = "integer",extraCols = "age")
+dim(x) #dimension will tell us how big the file of x is,in this case we have 30 columns and 123534969 rows.
+ 
+x[1:6,1:6] #it shows the first 6 rows and columns
+
+sum(x[, "Year"] == 1987) #compute the number of flights in 1987
+sum(x[,"DayOfWeek"] == 6) #compute the number of Saturday flights can be found using the command
+
+##Creating a new bigmatrix, named y, which uses the airline backing file with the attach.big.matrix()function
+
+y <- attach.big.matrix("airlines.desc") #notice x and y are pointing to the same dataset called airlines now.
+
+##Creating a new bigmatrix object which has 3 rows, 3 columns and holds zero integer values.This code from the book is actually out of dated, however, since it has nothing to do with the main purpose of our project, we decided to skip this code.
+#foo <- big.matrix(nrow = 3, ncol = 3, type = "integer", init = 0)
+#foo
+#bar <- foo
+#bar[1,1] <- 1
+#foo
+```
+
+```{r}
+##We use a big.matrix object to store the airline data and a for loop to interate over each day, finding the number of flights.
+x <- attach.big.matrix("airlines.desc")
+dayCount = integer(7)
+for (i in 1:7) 
+dayCount[i] <-  sum(x[,"DayOfWeek"] == i)
+dayCount
+
+state <- numeric(10)
+for (i in 2:10) 
+state[i] <- state[i - 1] + sample( c(-1, 1), 1 )
+state
+
+##Downloading a package called "foreach". This package allows us to define embarrassingly parallel loops wither sequentially or in parallel. The codes below uses the foreach() function and the previously created big.matrix object.
+
+library(foreach)
+dayCount <- foreach(i = 1:7, .combine=c) %do% {
+  sum(x[,"DayOfWeek"] == i)
+}
+
+##Split the rows of x by days of the week.
+dow <- split(1:nrow(x), x[,"DayOfWeek"])
+##Rename the names of dow
+names(dow) <- c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+##Get the first 6 rows corresponding to Monday flights.
+dow$Mon[1:6]
+dayCount <- foreach(dayInds = dow, .combine = c) %do% {
+  length(dayInds)
+}
+dayCount
+
+##Divide CRSDepTime by 100 and take the floor to get the departure hour.
+depHours <- floor(x[,"CRSDepTime"]/100)
+##Set the departure hours listed as 24 to 0.
+depHours[depHours==24] <- 0
+
+##Split on the hours.
+hourInds <- split(1:length(depHours), depHours)
+
+##Create a variable to hold the quantile probabilities.
+myProbs <- c(0.9, 0.99, 0.999, 0.9999)
+
+##Use foreach to find the quantiles for each hour.
+delayQuantiles <- foreach( hour = hourInds, .combine=cbind) %do% {
+  require(bigmemory)
+  x <- attach.big.matrix("airlines.desc")
+  quantile(x[hour, "DepDelay"], myProbs, 
+           na.rm = TRUE)
+}
+
+##Clean up the column names.
+colnames(delayQuantiles) <- names(hourInds)
+##Loading the parallel package so we can find how many cores are on the machine.
+library(parallel)
+
+##Loading our parallel backend.
+library(doSNOW)
+
+##Use the total number of cores on the machine minus one.
+numParallelCores <- max(1, detectCores()-1)
+
+##Create the parallel processes.
+cl <- makeCluster(rep("localhost", numParallelCores),type = "SOCK")
+
+##Register the parallel processes with foreach.
+registerDoSNOW(cl)
+
+##Run the foreach loop again, this time with %dopar% so that it is executed in parallel.
+delayQuantiles <- foreach(hour=hourInds, .combine=cbind) %dopar% {
+  require(bigmemory)
+  x <- attach.big.matrix("airlines.desc")
+  quantile(x[hour, "DepDelay"], myProbs, na.rm=TRUE)
+}
+colnames(delayQuantiles) <- names(hourInds)
+stopCluster(cl)
+
+#Visualizing the delays by using ggplot2
+library(ggplot2)
+library(reshape2)
+dq <- melt(delayQuantiles)
+names(dq) <- c("percentile", "hour", "delay")
+qplot(hour, delay, data = dq, color = percentile, geom = "line")
+```
+
+```{r age of the plane}
+##We want to calculate the age of a plane.
+##Using the big.matrix object from beofre, which holds the entire data set, we can quickly find that there are 13,536 unique tail codes that appear in the data set.
+
+length(unique(x[,"TailNum"]))
+
+#To find the age of a plane, we need to find the first time a tail code apprears, so we will split the data by the TailNum variable and use foreach() to find this value for each Tailnum group.
+
+library(doParallel)
+tailnumber <- (x[,11])
+tailSplit <- split(1:length(tailnumber),tailnumber)
+registerDoParallel()
+planeStart <- foreach(tailInds = tailSplit, .combine=c) %dopar% {
+  require(bigmemory)
+  x <- attach.big.matrix("airlines.desc")
+
+##Get the first year this tail code appears in the data set.
+minYear <- min(x[tailInds, "Year"], na.rm = TRUE)
+  
+##Get the rows that have the same year.
+minYearTailInds <- tailInds[which(x[tailInds, "Year"] == minYear)]
+
+##The first month this tail code appears is the minimum month for rows indexed by minYearTailInds.
+minMonth <- min(x[minYearTailInds, "Month"], na.rm = TRUE)
+  
+##Return the first time the tail code appears in months A.D.
+12*minYear + minMonth
+}
+
+as.numeric(x[,"Year"])
+as.numeric(x[,"Month"])
+as.numeric(planeStart[x[,"TailNum"]])
+
+##Creating a new column in the airlines dataset called "age".
+x[,"age"] <- x[,"Year"] * 12 + x[,"Month"]- planeStart[x[,"TailNum"]]
+
+##Since we have the age of a plane, we will create a linear model with arrival delay modeled as a linear function of airplane age to see if there is an association between older planes and larger arrival delays.
+library(biganalytics)
+blm <- biglm.big.matrix( ArrDelay ~ age, data = x )
+summary(blm)
+##The model indicates that older planes are associated with large delays. But the effect is very small and there may also be effects that are not accounted for in the model.
+```
+
+
+```{r Questions in the Chapter}
+##Question3: How many flights were there for each day of the week?
+sum(x[,"DayOfWeek"] ==1)
+sum(x[,"DayOfWeek"] ==2)
+sum(x[,"DayOfWeek"] ==3)
+sum(x[,"DayOfWeek"] ==4)
+sum(x[,"DayOfWeek"] ==5)
+sum(x[,"DayOfWeek"] ==6)
+sum(x[,"DayOfWeek"] ==7)
+## 18136111 flights on Sunday
+## 18061938 flights on Monday
+## 18103222 flights on Tuesday
+## 18083800 flights on Wednesday
+## 18091338 flights on Thursday
+## 15915382 flights on Friday
+## 17143178 flights on Saturday
+
+##Question4: For each year,how many flights were there for each day of the week?
+table(x[,1],x[,4])
+
+##Question5: For each year, how many of the tail codes are listed as NA?
+tapply(x[,11],x[,1],ff<-function(x) {sum(is.na(x))})
+##By looking at the table we got from R,we can say that in early years we have more missing tail codes. Actually, when further exploration has been done, all the tail codes appeared to be missing in some years, such as 1987 and 1988.
+
+##Question6: Which year had the greatest proportion of late flights? 
+##airSubset <- x[x[,22] == 0 & (x[,16] >= 15 | x[,15] >= 15), c("Year", "UniqueCarrier", "Origin", "Dest", "DepDelay", "ArrDelay")]
+## find the overall ratio of flights that were delayed
+##nrow(airSubset) / nrow(x) 
+## following loop calculates the proportions of late flights (which have more than 15 min delay)
+##for (i in 1987:1988){  pp [i] = nrow(airSubset[airSubset[,1] == i,])/nrow(x[x[,1] == i,])}
+##max(pp[1987:2008])
+##Here, we have created a subset of airline data for those flights with more than or equal to 15 minutes delay. After finding proportions for 22 years and comparing the results, we saw that 2007 has the greatest proportion of around 0.275 for late flights, that is, 27.5% of all times, flights were delayed in 2007 in the United States.
+
+##Question7: Which flight day is best for minimizing departure delays? Which time of day?
+tapply(x[,16], x[,4], min, na.rm = TRUE)
+# 1     2     3     4     5     6     7 
+#-1199 -1410 -1196 -1199 -1370 -1194 -1199 
+
+##Question8: Which is the best day of the week to fly?
+##airSubset2 <- x[x[,22] == 0 & (x[,16] < 15 | x[,15] < 15), c("Year", "DayofMonth", "DayOfWeek", "DepDelay", "ArrDelay")]
+##tapply( airSubset2[,4], airSubset2[,3], mean, na.rm = TRUE )
+##tapply( airSubset2[,5], airSubset2[,3], mean, na.rm = TRUE )
+
+#another ineffient way: 
+#tapply( x[,16], x[,4], mean, na.rm = TRUE )
+#tapply( x[,15], x[,4], mean, na.rm = TRUE )
+
+##Question9: Which is the best day of the month to fly?
+##xx1 <- tapply( x[,16], x[,3], mean, na.rm = TRUE )
+##match(min(xx1),xx1)
+##xx2 <- tapply( x[,15], x[,3], mean, na.rm = TRUE )
+##match(min(xx2),xx2)
+
+##airSubset2 <- x[x[,22] == 0 & (x[,16] < 15 | x[,15] < 15),c("Year", "DayofMonth", "DayOfWeek", "DepDelay", "ArrDelay")]
+##xx3 <- tapply( airSubset2[,4], airSubset2[,2], mean, na.rm = TRUE )
+##match(min(xx3),xx3)
+##xx4 <- tapply( airSubset2[,5], airSubset2[,2], mean, na.rm = TRUE )
+##match(min(xx4),xx4)
+#Here, we have calculated mean departure and arrival delays for all years and all delays, as well as for a subset of data which has less than 15 minutes delays. The resualts we get depending on the departure and arrival time are:
+#Departure Information:
+#For the whole dataset:
+#the best day of the month is 7th day.
+#For the subset with less than 15 minutes delays:
+#the best day of the month is 4th day.
+#Arrival Information:
+#For the all dataset:
+#the best day of the month is 25th day.
+#For the subset with less than 15 mintues delays:
+#the best day of the month is 31st day.
+```
+
+#Conclusion:
+#The main purpose of the final project is to reproduce the whole chapter by analyzing 12 GB Airline Flight Delays dataset. The chapter requires using R packages, and also suggests different approaches related to big data analysis, which we excluded mostly. The R code we followed starts with downloading, merging and saving the dataset, and then creating a big.matrix, which takes several hours. After that, basic statistical tools are used to find meaningful results and answers. In order to complete the project, 6 computers have been used and the memory size has been expanded in R program several times. It can be clearly said that analyzing big data requires using more efficient tools that works faster along with statistical tools.
